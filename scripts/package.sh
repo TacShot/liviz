@@ -1,0 +1,76 @@
+#!/bin/zsh
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+source "$ROOT_DIR/Config/version.env"
+
+BUILD_HOME="${LIVEVIZ_BUILD_HOME:-$HOME}"
+MODULE_CACHE="${LIVEVIZ_MODULE_CACHE:-$ROOT_DIR/.build/ModuleCache}"
+BUILD_DIR="$ROOT_DIR/.build/liveviz-dist"
+APP_DIR="$BUILD_DIR/$APP_NAME.app"
+CONTENTS_DIR="$APP_DIR/Contents"
+MACOS_DIR="$CONTENTS_DIR/MacOS"
+RESOURCES_DIR="$CONTENTS_DIR/Resources"
+DIST_DIR="$ROOT_DIR/dist"
+
+env \
+  HOME="$BUILD_HOME" \
+  CLANG_MODULE_CACHE_PATH="$MODULE_CACHE" \
+  SWIFTPM_MODULECACHE_OVERRIDE="$MODULE_CACHE" \
+  swift build -c release
+
+rm -rf "$APP_DIR"
+mkdir -p "$MACOS_DIR" "$RESOURCES_DIR" "$DIST_DIR"
+
+cp "$ROOT_DIR/.build/release/$APP_NAME" "$MACOS_DIR/$APP_NAME"
+chmod +x "$MACOS_DIR/$APP_NAME"
+
+cat > "$CONTENTS_DIR/Info.plist" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>en</string>
+    <key>CFBundleExecutable</key>
+    <string>$APP_NAME</string>
+    <key>CFBundleIdentifier</key>
+    <string>$BUNDLE_ID</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>$APP_NAME</string>
+    <key>CFBundleDisplayName</key>
+    <string>$APP_NAME</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>$MARKETING_VERSION</string>
+    <key>CFBundleVersion</key>
+    <string>$CURRENT_PROJECT_VERSION</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>14.0</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>NSSupportsAutomaticGraphicsSwitching</key>
+    <true/>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.music</string>
+</dict>
+</plist>
+EOF
+
+codesign --force --deep --sign - "$APP_DIR"
+xattr -cr "$APP_DIR"
+
+ZIP_PATH="$DIST_DIR/${APP_NAME}-${MARKETING_VERSION}.zip"
+rm -f "$ZIP_PATH"
+ditto -c -k --sequesterRsrc --keepParent "$APP_DIR" "$ZIP_PATH"
+
+rm -rf "$DIST_DIR/$APP_NAME.app"
+cp -R "$APP_DIR" "$DIST_DIR/$APP_NAME.app"
+xattr -cr "$DIST_DIR/$APP_NAME.app"
+
+echo "Created:"
+echo "  $DIST_DIR/$APP_NAME.app"
+echo "  $ZIP_PATH"
