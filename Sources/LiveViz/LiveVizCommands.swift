@@ -10,11 +10,12 @@ struct LiveVizCommands: Commands {
                 let alert = NSAlert()
                 alert.messageText = "LiveViz Controls"
                 alert.informativeText = """
-                F toggles desktop-style fullscreen.
+                Space cycles the visualizer style.
+                F toggles wallpaper mode.
                 B toggles the dark background.
                 Up Arrow increases visual intensity.
                 Down Arrow decreases visual intensity.
-                Esc exits desktop-style fullscreen.
+                Esc exits wallpaper mode.
                 """
                 alert.alertStyle = .informational
                 alert.runModal()
@@ -22,7 +23,12 @@ struct LiveVizCommands: Commands {
 
             Divider()
 
-            Button("Toggle Desktop Fullscreen") {
+            Button("Next Visualizer") {
+                model.cycleStyle()
+            }
+            .keyboardShortcut(.space, modifiers: [])
+
+            Button("Toggle Wallpaper Mode") {
                 model.toggleFullscreenDesktopMode()
             }
             .keyboardShortcut("f", modifiers: [])

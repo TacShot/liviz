@@ -1,11 +1,19 @@
 import AppKit
 import Foundation
 
+enum VisualizerStyle: CaseIterable {
+    case neonWave
+    case prismBars
+    case pulseLine
+    case horizonDots
+}
+
 @MainActor
 final class VisualizerModel: ObservableObject {
     @Published private(set) var bands: [CGFloat] = Array(repeating: 0.04, count: 96)
     @Published private(set) var backgroundVisible = false
     @Published private(set) var intensity: CGFloat = 1.0
+    @Published private(set) var style: VisualizerStyle = .neonWave
 
     private var captureController: SystemAudioCapture?
     private weak var windowManager: WindowManager?
@@ -41,6 +49,15 @@ final class VisualizerModel: ObservableObject {
         windowManager?.toggleImmersiveMode()
     }
 
+    func cycleStyle() {
+        let allStyles = VisualizerStyle.allCases
+        guard let currentIndex = allStyles.firstIndex(of: style) else {
+            style = .neonWave
+            return
+        }
+        style = allStyles[(currentIndex + 1) % allStyles.count]
+    }
+
     func increaseIntensity() {
         intensity = min(intensity + 0.12, 3.0)
     }
@@ -55,6 +72,8 @@ final class VisualizerModel: ObservableObject {
             toggleFullscreenDesktopMode()
         case 11:
             toggleBackground()
+        case 49:
+            cycleStyle()
         case 126:
             increaseIntensity()
         case 125:

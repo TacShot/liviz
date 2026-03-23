@@ -11,6 +11,8 @@ final class WindowManager: ObservableObject {
     private var savedLevel: NSWindow.Level = .normal
     private var savedCollectionBehavior: NSWindow.CollectionBehavior = []
     private var savedPresentationOptions: NSApplication.PresentationOptions = []
+    private var savedIgnoresMouseEvents = false
+    private var savedMovableByBackground = true
 
     func attach(_ window: NSWindow) {
         guard self.window !== window else { return }
@@ -29,10 +31,10 @@ final class WindowManager: ObservableObject {
         window.backgroundColor = .clear
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
-        window.toolbar = nil
         window.hasShadow = false
         window.isMovableByWindowBackground = true
-        window.collectionBehavior.insert(.fullScreenPrimary)
+        window.collectionBehavior = [.managed]
+        window.toolbar = nil
     }
 
     private func enterImmersiveMode(_ window: NSWindow) {
@@ -43,17 +45,33 @@ final class WindowManager: ObservableObject {
         savedLevel = window.level
         savedCollectionBehavior = window.collectionBehavior
         savedPresentationOptions = NSApp.presentationOptions
+        savedIgnoresMouseEvents = window.ignoresMouseEvents
+        savedMovableByBackground = window.isMovableByWindowBackground
 
-        window.styleMask = [.borderless, .fullSizeContentView]
-        window.level = .screenSaver
-        window.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary, .fullScreenDisallowsTiling]
+        let desktopWindowLevel = Int(CGWindowLevelForKey(.desktopWindow))
+        let desktopIconsLevel = Int(CGWindowLevelForKey(.desktopIconWindow))
+        let wallpaperReplacementLevel = desktopIconsLevel > (desktopWindowLevel + 1)
+            ? desktopWindowLevel + ((desktopIconsLevel - desktopWindowLevel) / 2)
+            : desktopWindowLevel + 1
+
+        window.styleMask = [.titled, .fullSizeContentView]
+        window.level = NSWindow.Level(rawValue: wallpaperReplacementLevel)
+        window.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
         window.setFrame(screen.frame, display: true, animate: false)
+        window.backgroundColor = .clear
+        window.isOpaque = false
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
+        window.ignoresMouseEvents = true
+        window.isMovableByWindowBackground = false
 
         for button in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
             window.standardWindowButton(button)?.isHidden = true
         }
 
         NSApp.presentationOptions = [.hideDock, .hideMenuBar]
+        NSApp.activate(ignoringOtherApps: true)
+        window.orderFrontRegardless()
     }
 
     private func restore(_ window: NSWindow) {
@@ -61,6 +79,8 @@ final class WindowManager: ObservableObject {
         window.level = savedLevel
         window.collectionBehavior = savedCollectionBehavior
         window.setFrame(savedFrame, display: true, animate: false)
+        window.ignoresMouseEvents = savedIgnoresMouseEvents
+        window.isMovableByWindowBackground = savedMovableByBackground
         configure(window)
 
         for button in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
@@ -68,6 +88,8 @@ final class WindowManager: ObservableObject {
         }
 
         NSApp.presentationOptions = savedPresentationOptions
+        NSApp.activate(ignoringOtherApps: true)
+        window.makeKeyAndOrderFront(nil)
     }
 }
 
