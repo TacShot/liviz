@@ -12,6 +12,9 @@ CONTENTS_DIR="$APP_DIR/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
 DIST_DIR="$ROOT_DIR/dist"
+ICON_BUILD_DIR="$BUILD_DIR/icon-build"
+ICONSET_DIR="$ICON_BUILD_DIR/AppIcon.iconset"
+ICON_FILE="AppIcon.icns"
 
 env \
   HOME="$BUILD_HOME" \
@@ -24,6 +27,12 @@ mkdir -p "$MACOS_DIR" "$RESOURCES_DIR" "$DIST_DIR"
 
 cp "$ROOT_DIR/.build/release/$APP_NAME" "$MACOS_DIR/$APP_NAME"
 chmod +x "$MACOS_DIR/$APP_NAME"
+
+rm -rf "$ICON_BUILD_DIR"
+mkdir -p "$ICON_BUILD_DIR"
+swift "$ROOT_DIR/scripts/generate_icon.swift" "$ICON_BUILD_DIR"
+iconutil -c icns "$ICONSET_DIR" -o "$RESOURCES_DIR/$ICON_FILE"
+xattr -cr "$APP_DIR"
 
 cat > "$CONTENTS_DIR/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -38,6 +47,8 @@ cat > "$CONTENTS_DIR/Info.plist" <<EOF
     <string>$BUNDLE_ID</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
+    <key>CFBundleIconFile</key>
+    <string>$ICON_FILE</string>
     <key>CFBundleName</key>
     <string>$APP_NAME</string>
     <key>CFBundleDisplayName</key>

@@ -1,0 +1,29 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="64" y1="48" x2="456" y2="464" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#06111B"/>
+      <stop offset="0.48" stop-color="#230B39"/>
+      <stop offset="1" stop-color="#070711"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(256 256) rotate(90) scale(168)">
+      <stop stop-color="#F940C6" stop-opacity="0.95"/>
+      <stop offset="0.5" stop-color="#766BFF" stop-opacity="0.78"/>
+      <stop offset="1" stop-color="#16E0FF" stop-opacity="0.9"/>
+    </radialGradient>
+    <filter id="blur" x="0" y="0" width="512" height="512" filterUnits="userSpaceOnUse">
+      <feGaussianBlur stdDeviation="10"/>
+    </filter>
+  </defs>
+  <rect x="20" y="20" width="472" height="472" rx="108" fill="url(#bg)"/>
+  <circle cx="256" cy="256" r="140" fill="url(#glow)" filter="url(#blur)"/>
+  <g stroke-linecap="round" stroke-linejoin="round">
+    <path d="M78 171C112 137 144 117 176 119C206 121 235 144 263 178C292 213 323 235 356 235C390 235 420 215 434 202" stroke="#4DE3FF" stroke-opacity="0.34" stroke-width="10"/>
+    <path d="M78 196C116 163 153 146 187 150C220 154 250 180 280 215C311 250 342 269 374 266C402 263 425 246 434 236" stroke="#7C75FF" stroke-opacity="0.4" stroke-width="10"/>
+    <path d="M78 221C116 192 154 179 190 183C228 188 260 216 291 252C320 286 350 307 380 304C405 302 425 288 434 278" stroke="#D559F9" stroke-opacity="0.52" stroke-width="10"/>
+    <path d="M78 246C116 220 156 210 195 215C234 220 266 252 296 291C324 327 352 347 381 343C405 340 424 329 434 318" stroke="#FA7EC7" stroke-opacity="0.64" stroke-width="10"/>
+    <path d="M78 271C116 248 156 240 196 244C235 248 268 281 299 322C325 357 351 376 378 372C403 368 423 357 434 346" stroke="#FFE5FF" stroke-opacity="0.95" stroke-width="12"/>
+    <path d="M78 297C117 276 157 270 196 274C233 278 264 307 294 343C321 376 349 394 379 390C404 387 423 374 434 362" stroke="#FA7EC7" stroke-opacity="0.64" stroke-width="10"/>
+    <path d="M78 322C119 303 158 299 196 302C232 306 261 331 290 363C318 393 347 411 379 408C405 405 424 392 434 381" stroke="#D559F9" stroke-opacity="0.5" stroke-width="10"/>
+  </g>
+  <rect x="20.75" y="20.75" width="470.5" height="470.5" rx="107.25" stroke="white" stroke-opacity="0.14" stroke-width="1.5"/>
+</svg>
