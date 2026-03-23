@@ -11,7 +11,6 @@ final class WindowManager: ObservableObject {
     private var savedLevel: NSWindow.Level = .normal
     private var savedCollectionBehavior: NSWindow.CollectionBehavior = []
     private var savedPresentationOptions: NSApplication.PresentationOptions = []
-    private var savedIgnoresMouseEvents = false
     private var savedMovableByBackground = true
 
     func attach(_ window: NSWindow) {
@@ -45,7 +44,6 @@ final class WindowManager: ObservableObject {
         savedLevel = window.level
         savedCollectionBehavior = window.collectionBehavior
         savedPresentationOptions = NSApp.presentationOptions
-        savedIgnoresMouseEvents = window.ignoresMouseEvents
         savedMovableByBackground = window.isMovableByWindowBackground
 
         let desktopWindowLevel = Int(CGWindowLevelForKey(.desktopWindow))
@@ -54,7 +52,7 @@ final class WindowManager: ObservableObject {
             ? desktopWindowLevel + ((desktopIconsLevel - desktopWindowLevel) / 2)
             : desktopWindowLevel + 1
 
-        window.styleMask = [.titled, .fullSizeContentView]
+        window.styleMask = [.borderless, .fullSizeContentView]
         window.level = NSWindow.Level(rawValue: wallpaperReplacementLevel)
         window.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
         window.setFrame(screen.frame, display: true, animate: false)
@@ -62,8 +60,9 @@ final class WindowManager: ObservableObject {
         window.isOpaque = false
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
-        window.ignoresMouseEvents = true
+        window.title = ""
         window.isMovableByWindowBackground = false
+        window.hasShadow = false
 
         for button in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
             window.standardWindowButton(button)?.isHidden = true
@@ -71,7 +70,7 @@ final class WindowManager: ObservableObject {
 
         NSApp.presentationOptions = [.hideDock, .hideMenuBar]
         NSApp.activate(ignoringOtherApps: true)
-        window.orderFrontRegardless()
+        window.makeKeyAndOrderFront(nil)
     }
 
     private func restore(_ window: NSWindow) {
@@ -79,7 +78,6 @@ final class WindowManager: ObservableObject {
         window.level = savedLevel
         window.collectionBehavior = savedCollectionBehavior
         window.setFrame(savedFrame, display: true, animate: false)
-        window.ignoresMouseEvents = savedIgnoresMouseEvents
         window.isMovableByWindowBackground = savedMovableByBackground
         configure(window)
 

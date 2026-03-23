@@ -2,19 +2,17 @@ import SwiftUI
 
 struct VisualizerView: View {
     @ObservedObject var model: VisualizerModel
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         GeometryReader { geometry in
             let size = geometry.size
+            let theme = resolvedTheme
 
             ZStack {
                 if model.backgroundVisible {
                     LinearGradient(
-                        colors: [
-                            Color(red: 0.02, green: 0.02, blue: 0.09),
-                            Color(red: 0.10, green: 0.03, blue: 0.20),
-                            Color(red: 0.02, green: 0.02, blue: 0.09)
-                        ],
+                        colors: theme.backgroundGradient,
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
@@ -24,7 +22,7 @@ struct VisualizerView: View {
                 TimelineView(.animation(minimumInterval: 1.0 / 60.0)) { timeline in
                     let time = timeline.date.timeIntervalSinceReferenceDate
 
-                    visualizerBody(size: size, time: time)
+                    visualizerBody(size: size, time: time, theme: theme)
                     .frame(width: size.width, height: size.height)
                     .compositingGroup()
                 }
@@ -36,38 +34,37 @@ struct VisualizerView: View {
     }
 
     @ViewBuilder
-    private func visualizerBody(size: CGSize, time: TimeInterval) -> some View {
+    private func visualizerBody(size: CGSize, time: TimeInterval, theme: VisualTheme) -> some View {
         switch model.style {
         case .neonWave:
-            NeonWaveVisualizer(bands: model.bands, time: time)
+            NeonWaveVisualizer(bands: model.bands, time: time, theme: theme)
         case .prismBars:
-            PrismBarsVisualizer(bands: model.bands)
+            PrismBarsVisualizer(bands: model.bands, theme: theme)
         case .pulseLine:
-            PulseLineVisualizer(bands: model.bands, time: time)
+            PulseLineVisualizer(bands: model.bands, time: time, theme: theme)
         case .horizonDots:
-            HorizonDotsVisualizer(bands: model.bands, time: time)
+            HorizonDotsVisualizer(bands: model.bands, time: time, theme: theme)
         }
     }
 
-    private func strandColor(index: Int) -> Color {
-        let palette = [
-            Color(red: 0.18, green: 0.88, blue: 1.0),
-            Color(red: 0.46, green: 0.55, blue: 1.0),
-            Color(red: 0.95, green: 0.36, blue: 0.92)
-        ]
-        return palette[index % palette.count]
+    private var resolvedTheme: VisualTheme {
+        if model.followsSystemTheme {
+            return colorScheme == .light ? .lightSynced : .darkSynced
+        }
+        return .manualNeon
     }
 }
 
 private struct NeonWaveVisualizer: View {
     let bands: [CGFloat]
     let time: TimeInterval
+    let theme: VisualTheme
 
     var body: some View {
         ZStack {
             ForEach(0..<18, id: \.self) { strand in
                 let strandProgress = CGFloat(strand) / 17.0
-                let color = strandColor(index: strand)
+                let color = theme.palette[strand % theme.palette.count]
                 let opacity = 0.18 + (1.0 - abs(strandProgress - 0.5)) * 0.44
 
                 WaveStrandShape(
@@ -87,30 +84,22 @@ private struct NeonWaveVisualizer: View {
 
             MirrorWaveShape(bands: bands, mirrored: false)
                 .stroke(
-                    Color(red: 1.0, green: 0.35, blue: 0.75).opacity(0.92),
+                    theme.accentTop.opacity(0.92),
                     style: StrokeStyle(lineWidth: 2.1, lineCap: .round, lineJoin: .round)
                 )
 
             MirrorWaveShape(bands: bands, mirrored: true)
                 .stroke(
-                    Color(red: 0.15, green: 0.82, blue: 1.0).opacity(0.92),
+                    theme.accentBottom.opacity(0.92),
                     style: StrokeStyle(lineWidth: 2.1, lineCap: .round, lineJoin: .round)
                 )
         }
-    }
-
-    private func strandColor(index: Int) -> Color {
-        let palette = [
-            Color(red: 0.18, green: 0.88, blue: 1.0),
-            Color(red: 0.46, green: 0.55, blue: 1.0),
-            Color(red: 0.95, green: 0.36, blue: 0.92)
-        ]
-        return palette[index % palette.count]
     }
 }
 
 private struct PrismBarsVisualizer: View {
     let bands: [CGFloat]
+    let theme: VisualTheme
 
     var body: some View {
         GeometryReader { geometry in
@@ -123,8 +112,7 @@ private struct PrismBarsVisualizer: View {
                 ForEach(Array(bands.enumerated()), id: \.offset) { index, band in
                     let x = (CGFloat(index) + 0.5) * spacing
                     let height = max(8, min(band, 1.1) * maxHeight)
-                    let hue = Double(index) / Double(max(bands.count - 1, 1))
-                    let color = Color(hue: 0.52 + (0.38 * hue), saturation: 0.72, brightness: 0.98)
+                    let color = theme.palette[index % theme.palette.count]
 
                     Capsule(style: .continuous)
                         .fill(color.opacity(0.96))
@@ -138,7 +126,7 @@ private struct PrismBarsVisualizer: View {
                 }
 
                 Rectangle()
-                    .fill(Color.white.opacity(0.14))
+                    .fill(theme.guide.opacity(0.14))
                     .frame(height: 1)
                     .offset(y: -0.5)
             }
@@ -149,17 +137,18 @@ private struct PrismBarsVisualizer: View {
 private struct PulseLineVisualizer: View {
     let bands: [CGFloat]
     let time: TimeInterval
+    let theme: VisualTheme
 
     var body: some View {
         ZStack {
             PulseShape(bands: bands, mirrored: false, time: time)
-                .stroke(Color(red: 1.0, green: 0.42, blue: 0.82).opacity(0.92), style: StrokeStyle(lineWidth: 3.0, lineCap: .round, lineJoin: .round))
+                .stroke(theme.accentTop.opacity(0.92), style: StrokeStyle(lineWidth: 3.0, lineCap: .round, lineJoin: .round))
 
             PulseShape(bands: bands, mirrored: true, time: time)
-                .stroke(Color(red: 0.18, green: 0.86, blue: 1.0).opacity(0.92), style: StrokeStyle(lineWidth: 3.0, lineCap: .round, lineJoin: .round))
+                .stroke(theme.accentBottom.opacity(0.92), style: StrokeStyle(lineWidth: 3.0, lineCap: .round, lineJoin: .round))
 
             PulseCenterLine()
-                .stroke(Color.white.opacity(0.14), style: StrokeStyle(lineWidth: 1.0, lineCap: .round))
+                .stroke(theme.guide.opacity(0.14), style: StrokeStyle(lineWidth: 1.0, lineCap: .round))
         }
     }
 }
@@ -167,6 +156,7 @@ private struct PulseLineVisualizer: View {
 private struct HorizonDotsVisualizer: View {
     let bands: [CGFloat]
     let time: TimeInterval
+    let theme: VisualTheme
 
     var body: some View {
         GeometryReader { geometry in
@@ -179,8 +169,7 @@ private struct HorizonDotsVisualizer: View {
                     let x = (CGFloat(index) + 0.5) * spacing
                     let amplitude = min(band, 1.05) * size.height * 0.24
                     let wobble = sin(time * 1.8 + Double(index) * 0.23) * Double(size.height * 0.006)
-                    let hue = Double(index) / Double(max(bands.count - 1, 1))
-                    let color = Color(hue: 0.54 + (0.32 * hue), saturation: 0.62, brightness: 0.98)
+                    let color = theme.palette[index % theme.palette.count]
 
                     Circle()
                         .fill(color.opacity(0.95))
@@ -195,6 +184,62 @@ private struct HorizonDotsVisualizer: View {
             }
         }
     }
+}
+
+private struct VisualTheme {
+    let palette: [Color]
+    let accentTop: Color
+    let accentBottom: Color
+    let guide: Color
+    let backgroundGradient: [Color]
+
+    static let manualNeon = VisualTheme(
+        palette: [
+            Color(red: 0.18, green: 0.88, blue: 1.0),
+            Color(red: 0.46, green: 0.55, blue: 1.0),
+            Color(red: 0.95, green: 0.36, blue: 0.92)
+        ],
+        accentTop: Color(red: 1.0, green: 0.35, blue: 0.75),
+        accentBottom: Color(red: 0.15, green: 0.82, blue: 1.0),
+        guide: .white,
+        backgroundGradient: [
+            Color(red: 0.02, green: 0.02, blue: 0.09),
+            Color(red: 0.10, green: 0.03, blue: 0.20),
+            Color(red: 0.02, green: 0.02, blue: 0.09)
+        ]
+    )
+
+    static let darkSynced = VisualTheme(
+        palette: [
+            Color(red: 0.32, green: 0.91, blue: 1.0),
+            Color(red: 0.52, green: 0.65, blue: 1.0),
+            Color(red: 0.98, green: 0.50, blue: 0.84)
+        ],
+        accentTop: Color(red: 1.0, green: 0.48, blue: 0.78),
+        accentBottom: Color(red: 0.28, green: 0.87, blue: 1.0),
+        guide: .white,
+        backgroundGradient: [
+            Color(red: 0.03, green: 0.03, blue: 0.08),
+            Color(red: 0.07, green: 0.10, blue: 0.18),
+            Color(red: 0.02, green: 0.03, blue: 0.07)
+        ]
+    )
+
+    static let lightSynced = VisualTheme(
+        palette: [
+            Color(red: 0.15, green: 0.60, blue: 0.98),
+            Color(red: 0.48, green: 0.44, blue: 0.98),
+            Color(red: 0.96, green: 0.46, blue: 0.63)
+        ],
+        accentTop: Color(red: 0.96, green: 0.46, blue: 0.63),
+        accentBottom: Color(red: 0.16, green: 0.67, blue: 0.96),
+        guide: Color(red: 0.12, green: 0.16, blue: 0.24),
+        backgroundGradient: [
+            Color(red: 0.94, green: 0.97, blue: 1.0),
+            Color(red: 0.88, green: 0.92, blue: 0.99),
+            Color(red: 0.96, green: 0.94, blue: 0.99)
+        ]
+    )
 }
 
 private struct WaveStrandShape: Shape {
