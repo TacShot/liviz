@@ -12,6 +12,7 @@ struct LiveVizCommands: Commands {
                 alert.informativeText = """
                 Space cycles the visualizer style.
                 F toggles wallpaper mode.
+                D toggles blackout mode.
                 T toggles system theme sync.
                 B toggles the dark background.
                 Up Arrow increases visual intensity.
@@ -33,6 +34,11 @@ struct LiveVizCommands: Commands {
                 model.toggleFullscreenDesktopMode()
             }
             .keyboardShortcut("f", modifiers: [])
+
+            Button("Toggle Blackout Mode") {
+                model.toggleBlackoutMode()
+            }
+            .keyboardShortcut("d", modifiers: [])
 
             Button("Toggle Theme Sync") {
                 model.toggleThemeSync()

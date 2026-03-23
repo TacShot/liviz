@@ -15,6 +15,7 @@ final class VisualizerModel: ObservableObject {
     @Published private(set) var intensity: CGFloat = 1.0
     @Published private(set) var style: VisualizerStyle = .neonWave
     @Published private(set) var followsSystemTheme = true
+    @Published private(set) var blackoutMode = false
 
     private var captureController: SystemAudioCapture?
     private weak var windowManager: WindowManager?
@@ -71,10 +72,16 @@ final class VisualizerModel: ObservableObject {
         followsSystemTheme.toggle()
     }
 
+    func toggleBlackoutMode() {
+        blackoutMode.toggle()
+    }
+
     func handleKey(event: NSEvent) {
         switch event.keyCode {
         case 3:
             toggleFullscreenDesktopMode()
+        case 2:
+            toggleBlackoutMode()
         case 17:
             toggleThemeSync()
         case 11:

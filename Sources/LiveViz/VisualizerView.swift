@@ -10,7 +10,10 @@ struct VisualizerView: View {
             let theme = resolvedTheme
 
             ZStack {
-                if model.backgroundVisible {
+                if model.blackoutMode {
+                    Color.black
+                        .ignoresSafeArea()
+                } else if model.backgroundVisible {
                     LinearGradient(
                         colors: theme.backgroundGradient,
                         startPoint: .topLeading,
@@ -48,6 +51,9 @@ struct VisualizerView: View {
     }
 
     private var resolvedTheme: VisualTheme {
+        if model.blackoutMode {
+            return .blackout
+        }
         if model.followsSystemTheme {
             return colorScheme == .light ? .lightSynced : .darkSynced
         }
@@ -238,6 +244,22 @@ private struct VisualTheme {
             Color(red: 0.94, green: 0.97, blue: 1.0),
             Color(red: 0.88, green: 0.92, blue: 0.99),
             Color(red: 0.96, green: 0.94, blue: 0.99)
+        ]
+    )
+
+    static let blackout = VisualTheme(
+        palette: [
+            .white,
+            Color.white.opacity(0.92),
+            Color.white.opacity(0.84)
+        ],
+        accentTop: .white,
+        accentBottom: .white,
+        guide: .white,
+        backgroundGradient: [
+            .black,
+            .black,
+            .black
         ]
     )
 }
