@@ -6,6 +6,7 @@ source "$ROOT_DIR/Config/version.env"
 
 BUILD_HOME="${LIVEVIZ_BUILD_HOME:-$HOME}"
 MODULE_CACHE="${LIVEVIZ_MODULE_CACHE:-$ROOT_DIR/.build/ModuleCache}"
+SIGNING_IDENTITY="${LIVEVIZ_SIGNING_IDENTITY:-${SIGNING_IDENTITY:-}}"
 BUILD_DIR="$ROOT_DIR/.build/liveviz-dist"
 APP_DIR="$BUILD_DIR/$APP_NAME.app"
 CONTENTS_DIR="$APP_DIR/Contents"
@@ -71,7 +72,13 @@ cat > "$CONTENTS_DIR/Info.plist" <<EOF
 </plist>
 EOF
 
-codesign --force --deep --sign - "$APP_DIR"
+if [[ -n "$SIGNING_IDENTITY" ]]; then
+  echo "Signing with identity: $SIGNING_IDENTITY"
+  codesign --force --deep --sign "$SIGNING_IDENTITY" "$APP_DIR"
+else
+  echo "Signing with ad hoc identity (-). macOS privacy permissions may be requested again when replacing the app."
+  codesign --force --deep --sign - "$APP_DIR"
+fi
 xattr -cr "$APP_DIR"
 
 ZIP_PATH="$DIST_DIR/${APP_NAME}-${MARKETING_VERSION}.zip"

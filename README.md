@@ -54,8 +54,28 @@ Bundle identity and version numbers are set in `Config/version.env`:
 - `BUNDLE_ID`
 - `MARKETING_VERSION`
 - `CURRENT_PROJECT_VERSION`
+- `SIGNING_IDENTITY`
 
-If you want macOS to stop re-prompting across future installs as reliably as possible, keep the same bundle identifier and sign releases with the same real Developer ID certificate.
+If you want macOS to stop re-prompting across future installs when you replace the app in `/Applications`, you need both of these to stay stable:
+
+- The same `BUNDLE_ID`
+- The same real signing identity for every shipped build
+
+This project previously used ad hoc signing (`codesign -`), which is enough to run locally but is not stable enough for privacy permission continuity across replacements. To fix that, set `SIGNING_IDENTITY` in `Config/version.env` or export `LIVEVIZ_SIGNING_IDENTITY` before packaging.
+
+Example:
+
+```bash
+LIVEVIZ_SIGNING_IDENTITY="Developer ID Application: Your Name (TEAMID)" ./scripts/package.sh
+```
+
+You can list available local signing identities with:
+
+```bash
+security find-identity -v -p codesigning
+```
+
+If you keep using ad hoc signing, macOS may treat replacement builds as new apps for Screen Recording / System Audio permission purposes.
 
 ## Repository Layout
 
