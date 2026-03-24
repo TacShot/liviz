@@ -15,6 +15,8 @@ struct LiveVizCommands: Commands {
                 D toggles blackout mode.
                 T toggles system theme sync.
                 B toggles the dark background.
+                Left and Right change the visualizer colors.
+                Shift plus Left and Right change the background colors.
                 Up Arrow increases visual intensity.
                 Down Arrow decreases visual intensity.
                 Esc exits wallpaper mode.

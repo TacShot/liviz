@@ -19,6 +19,8 @@ struct VisualizerView: View {
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
+                    .hueRotation(.degrees(model.backgroundHueRotation * 360))
+                    .animation(.easeInOut(duration: 0.28), value: model.backgroundHueRotation)
                     .ignoresSafeArea()
                 }
 
@@ -28,6 +30,8 @@ struct VisualizerView: View {
                     visualizerBody(size: size, time: time, theme: theme)
                     .frame(width: size.width, height: size.height)
                     .compositingGroup()
+                    .hueRotation(.degrees(model.foregroundHueRotation * 360))
+                    .animation(.easeInOut(duration: 0.28), value: model.foregroundHueRotation)
                 }
 
                 KeyCaptureView(model: model)

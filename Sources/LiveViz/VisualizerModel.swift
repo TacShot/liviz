@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import SwiftUI
 
 enum VisualizerStyle: CaseIterable {
     case neonWave
@@ -16,10 +17,14 @@ final class VisualizerModel: ObservableObject {
     @Published private(set) var style: VisualizerStyle = .neonWave
     @Published private(set) var followsSystemTheme = true
     @Published private(set) var blackoutMode = false
+    @Published private(set) var foregroundHueRotation: Double = 0
+    @Published private(set) var backgroundHueRotation: Double = 0
 
     private var captureController: SystemAudioCapture?
     private weak var windowManager: WindowManager?
     private var hasStarted = false
+    private var workspaceObservers: [NSObjectProtocol] = []
+    private var isRestartingCapture = false
 
     func attach(windowManager: WindowManager) {
         self.windowManager = windowManager
@@ -28,8 +33,12 @@ final class VisualizerModel: ObservableObject {
     func start() async {
         guard !hasStarted else { return }
         hasStarted = true
+        installLifecycleObservers()
+        await restartCapture()
+    }
 
-        let capture = SystemAudioCapture { [weak self] samples in
+    private func makeCaptureController() -> SystemAudioCapture {
+        SystemAudioCapture { [weak self] samples in
             Task { @MainActor [weak self] in
                 self?.consume(samples: samples)
             }
@@ -38,9 +47,6 @@ final class VisualizerModel: ObservableObject {
                 Self.presentCaptureError(error)
             }
         }
-
-        captureController = capture
-        await capture.start()
     }
 
     func toggleBackground() {
@@ -76,6 +82,18 @@ final class VisualizerModel: ObservableObject {
         blackoutMode.toggle()
     }
 
+    func shiftVisualizerColor(direction: Double) {
+        withAnimation(.easeInOut(duration: 0.28)) {
+            foregroundHueRotation = normalizedHue(foregroundHueRotation + direction)
+        }
+    }
+
+    func shiftBackgroundColor(direction: Double) {
+        withAnimation(.easeInOut(duration: 0.28)) {
+            backgroundHueRotation = normalizedHue(backgroundHueRotation + direction)
+        }
+    }
+
     func handleKey(event: NSEvent) {
         switch event.keyCode {
         case 3:
@@ -92,6 +110,18 @@ final class VisualizerModel: ObservableObject {
             increaseIntensity()
         case 125:
             decreaseIntensity()
+        case 123:
+            if event.modifierFlags.contains(.shift) {
+                shiftBackgroundColor(direction: -0.08)
+            } else {
+                shiftVisualizerColor(direction: -0.08)
+            }
+        case 124:
+            if event.modifierFlags.contains(.shift) {
+                shiftBackgroundColor(direction: 0.08)
+            } else {
+                shiftVisualizerColor(direction: 0.08)
+            }
         case 53:
             if windowManager?.isImmersiveMode == true {
                 windowManager?.toggleImmersiveMode()
@@ -126,6 +156,48 @@ final class VisualizerModel: ObservableObject {
             let smoothed = (bands[index] * 0.68) + (next[index] * 0.32)
             bands[index] = max(0.012, smoothed)
         }
+    }
+
+    private func installLifecycleObservers() {
+        guard workspaceObservers.isEmpty else { return }
+
+        let workspaceCenter = NSWorkspace.shared.notificationCenter
+        let mainCenter = NotificationCenter.default
+
+        let notifications: [(NotificationCenter, Notification.Name)] = [
+            (workspaceCenter, NSWorkspace.didWakeNotification),
+            (workspaceCenter, NSWorkspace.screensDidWakeNotification),
+            (workspaceCenter, NSWorkspace.sessionDidBecomeActiveNotification),
+            (mainCenter, NSApplication.didBecomeActiveNotification)
+        ]
+
+        workspaceObservers = notifications.map { center, name in
+            center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    await self?.restartCapture()
+                }
+            }
+        }
+    }
+
+    private func restartCapture() async {
+        guard !isRestartingCapture else { return }
+        isRestartingCapture = true
+        defer { isRestartingCapture = false }
+
+        if let captureController {
+            await captureController.stop()
+            self.captureController = nil
+        }
+
+        let capture = makeCaptureController()
+        captureController = capture
+        await capture.start()
+    }
+
+    private func normalizedHue(_ value: Double) -> Double {
+        let wrapped = value.truncatingRemainder(dividingBy: 1)
+        return wrapped >= 0 ? wrapped : wrapped + 1
     }
 
     private static func presentCaptureError(_ error: Error) {
