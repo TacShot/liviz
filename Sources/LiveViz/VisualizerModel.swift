@@ -7,6 +7,7 @@ enum VisualizerStyle: CaseIterable {
     case prismBars
     case pulseLine
     case horizonDots
+    case tidalWaves
 }
 
 @MainActor
@@ -19,12 +20,19 @@ final class VisualizerModel: ObservableObject {
     @Published private(set) var blackoutMode = false
     @Published private(set) var foregroundHueRotation: Double = 0
     @Published private(set) var backgroundHueRotation: Double = 0
+    @Published private(set) var foregroundBrightness: Double = 1.0
+    @Published private(set) var backgroundBrightness: Double = 1.0
 
     private var captureController: SystemAudioCapture?
     private weak var windowManager: WindowManager?
     private var hasStarted = false
     private var workspaceObservers: [NSObjectProtocol] = []
     private var isRestartingCapture = false
+    private let settings: SettingsStore
+
+    init(settings: SettingsStore) {
+        self.settings = settings
+    }
 
     func attach(windowManager: WindowManager) {
         self.windowManager = windowManager
@@ -82,6 +90,10 @@ final class VisualizerModel: ObservableObject {
         blackoutMode.toggle()
     }
 
+    func toggleMirror() {
+        settings.mirrorEnabled.toggle()
+    }
+
     func shiftVisualizerColor(direction: Double) {
         withAnimation(.easeInOut(duration: 0.28)) {
             foregroundHueRotation = normalizedHue(foregroundHueRotation + direction)
@@ -94,40 +106,58 @@ final class VisualizerModel: ObservableObject {
         }
     }
 
+    func adjustForegroundBrightness(delta: Double) {
+        withAnimation(.easeInOut(duration: 0.2)) {
+            foregroundBrightness = clampedBrightness(foregroundBrightness + delta)
+        }
+    }
+
+    func adjustBackgroundBrightness(delta: Double) {
+        withAnimation(.easeInOut(duration: 0.2)) {
+            backgroundBrightness = clampedBrightness(backgroundBrightness + delta)
+        }
+    }
+
     func handleKey(event: NSEvent) {
-        switch event.keyCode {
-        case 3:
+        guard let action = settings.action(for: event) else { return }
+
+        switch action {
+        case .wallpaperMode:
             toggleFullscreenDesktopMode()
-        case 2:
+        case .blackoutMode:
             toggleBlackoutMode()
-        case 17:
+        case .themeSync:
             toggleThemeSync()
-        case 11:
+        case .toggleBackground:
             toggleBackground()
-        case 49:
+        case .cycleStyle:
             cycleStyle()
-        case 126:
+        case .toggleMirror:
+            toggleMirror()
+        case .visualizerHueLeft:
+            shiftVisualizerColor(direction: -0.08)
+        case .visualizerHueRight:
+            shiftVisualizerColor(direction: 0.08)
+        case .backgroundHueLeft:
+            shiftBackgroundColor(direction: -0.08)
+        case .backgroundHueRight:
+            shiftBackgroundColor(direction: 0.08)
+        case .intensityUp:
             increaseIntensity()
-        case 125:
+        case .intensityDown:
             decreaseIntensity()
-        case 123:
-            if event.modifierFlags.contains(.shift) {
-                shiftBackgroundColor(direction: -0.08)
-            } else {
-                shiftVisualizerColor(direction: -0.08)
-            }
-        case 124:
-            if event.modifierFlags.contains(.shift) {
-                shiftBackgroundColor(direction: 0.08)
-            } else {
-                shiftVisualizerColor(direction: 0.08)
-            }
-        case 53:
+        case .foregroundBrightnessUp:
+            adjustForegroundBrightness(delta: 0.08)
+        case .foregroundBrightnessDown:
+            adjustForegroundBrightness(delta: -0.08)
+        case .backgroundBrightnessUp:
+            adjustBackgroundBrightness(delta: 0.08)
+        case .backgroundBrightnessDown:
+            adjustBackgroundBrightness(delta: -0.08)
+        case .exitWallpaper:
             if windowManager?.isImmersiveMode == true {
                 windowManager?.toggleImmersiveMode()
             }
-        default:
-            break
         }
     }
 
@@ -198,6 +228,10 @@ final class VisualizerModel: ObservableObject {
     private func normalizedHue(_ value: Double) -> Double {
         let wrapped = value.truncatingRemainder(dividingBy: 1)
         return wrapped >= 0 ? wrapped : wrapped + 1
+    }
+
+    private func clampedBrightness(_ value: Double) -> Double {
+        min(max(value, 0.2), 1.4)
     }
 
     private static func presentCaptureError(_ error: Error) {

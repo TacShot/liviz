@@ -2,6 +2,7 @@ import SwiftUI
 
 struct VisualizerView: View {
     @ObservedObject var model: VisualizerModel
+    @EnvironmentObject private var settings: SettingsStore
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
@@ -20,7 +21,9 @@ struct VisualizerView: View {
                         endPoint: .bottomTrailing
                     )
                     .hueRotation(.degrees(model.backgroundHueRotation * 360))
+                    .brightness(model.backgroundBrightness - 1.0)
                     .animation(.easeInOut(duration: 0.28), value: model.backgroundHueRotation)
+                    .animation(.easeInOut(duration: 0.2), value: model.backgroundBrightness)
                     .ignoresSafeArea()
                 }
 
@@ -31,7 +34,9 @@ struct VisualizerView: View {
                     .frame(width: size.width, height: size.height)
                     .compositingGroup()
                     .hueRotation(.degrees(model.foregroundHueRotation * 360))
+                    .brightness(model.foregroundBrightness - 1.0)
                     .animation(.easeInOut(duration: 0.28), value: model.foregroundHueRotation)
+                    .animation(.easeInOut(duration: 0.2), value: model.foregroundBrightness)
                 }
 
                 KeyCaptureView(model: model)
@@ -44,13 +49,15 @@ struct VisualizerView: View {
     private func visualizerBody(size: CGSize, time: TimeInterval, theme: VisualTheme) -> some View {
         switch model.style {
         case .neonWave:
-            NeonWaveVisualizer(bands: model.bands, time: time, theme: theme)
+            NeonWaveVisualizer(bands: model.bands, time: time, theme: theme, mirrored: settings.mirrorEnabled)
         case .prismBars:
-            PrismBarsVisualizer(bands: model.bands, theme: theme)
+            PrismBarsVisualizer(bands: model.bands, theme: theme, mirrored: settings.mirrorEnabled)
         case .pulseLine:
-            PulseLineVisualizer(bands: model.bands, time: time, theme: theme)
+            PulseLineVisualizer(bands: model.bands, time: time, theme: theme, mirrored: settings.mirrorEnabled)
         case .horizonDots:
-            HorizonDotsVisualizer(bands: model.bands, time: time, theme: theme)
+            HorizonDotsVisualizer(bands: model.bands, time: time, theme: theme, mirrored: settings.mirrorEnabled)
+        case .tidalWaves:
+            TidalWavesVisualizer(bands: model.bands, time: time, theme: theme, mirrored: settings.mirrorEnabled)
         }
     }
 
@@ -58,6 +65,17 @@ struct VisualizerView: View {
         if model.blackoutMode {
             return .blackout
         }
+
+        if let imported = settings.importedLUT {
+            return VisualTheme(
+                palette: imported.palette.map(\.color),
+                accentTop: imported.palette.first?.color ?? .white,
+                accentBottom: imported.palette.last?.color ?? .white,
+                guide: imported.palette.dropFirst().first?.color ?? .white,
+                backgroundGradient: imported.backgroundGradient.map(\.color)
+            )
+        }
+
         if model.followsSystemTheme {
             return colorScheme == .light ? .lightSynced : .darkSynced
         }
@@ -69,6 +87,7 @@ private struct NeonWaveVisualizer: View {
     let bands: [CGFloat]
     let time: TimeInterval
     let theme: VisualTheme
+    let mirrored: Bool
 
     var body: some View {
         ZStack {
@@ -92,17 +111,25 @@ private struct NeonWaveVisualizer: View {
                 )
             }
 
-            MirrorWaveShape(bands: bands, mirrored: false)
-                .stroke(
-                    theme.accentTop.opacity(0.92),
-                    style: StrokeStyle(lineWidth: 2.1, lineCap: .round, lineJoin: .round)
-                )
+            if mirrored {
+                MirrorWaveShape(bands: bands, mirrored: false, centered: false)
+                    .stroke(
+                        theme.accentTop.opacity(0.92),
+                        style: StrokeStyle(lineWidth: 2.1, lineCap: .round, lineJoin: .round)
+                    )
 
-            MirrorWaveShape(bands: bands, mirrored: true)
-                .stroke(
-                    theme.accentBottom.opacity(0.92),
-                    style: StrokeStyle(lineWidth: 2.1, lineCap: .round, lineJoin: .round)
-                )
+                MirrorWaveShape(bands: bands, mirrored: true, centered: false)
+                    .stroke(
+                        theme.accentBottom.opacity(0.92),
+                        style: StrokeStyle(lineWidth: 2.1, lineCap: .round, lineJoin: .round)
+                    )
+            } else {
+                MirrorWaveShape(bands: bands, mirrored: false, centered: true)
+                    .stroke(
+                        theme.accentTop.opacity(0.92),
+                        style: StrokeStyle(lineWidth: 2.1, lineCap: .round, lineJoin: .round)
+                    )
+            }
         }
     }
 }
@@ -110,6 +137,7 @@ private struct NeonWaveVisualizer: View {
 private struct PrismBarsVisualizer: View {
     let bands: [CGFloat]
     let theme: VisualTheme
+    let mirrored: Bool
 
     var body: some View {
         GeometryReader { geometry in
@@ -127,12 +155,14 @@ private struct PrismBarsVisualizer: View {
                     Capsule(style: .continuous)
                         .fill(color.opacity(0.96))
                         .frame(width: barWidth, height: height)
-                        .position(x: x, y: (size.height / 2) - (height / 2) - 6)
+                        .position(x: x, y: mirrored ? (size.height / 2) - (height / 2) - 6 : size.height / 2)
 
-                    Capsule(style: .continuous)
-                        .fill(color.opacity(0.4))
-                        .frame(width: barWidth, height: height * 0.92)
-                        .position(x: x, y: (size.height / 2) + (height * 0.46) + 6)
+                    if mirrored {
+                        Capsule(style: .continuous)
+                            .fill(color.opacity(0.4))
+                            .frame(width: barWidth, height: height * 0.92)
+                            .position(x: x, y: (size.height / 2) + (height * 0.46) + 6)
+                    }
                 }
 
                 Rectangle()
@@ -148,14 +178,17 @@ private struct PulseLineVisualizer: View {
     let bands: [CGFloat]
     let time: TimeInterval
     let theme: VisualTheme
+    let mirrored: Bool
 
     var body: some View {
         ZStack {
-            PulseShape(bands: bands, mirrored: false, time: time)
+            PulseShape(bands: bands, mirrored: false, time: time, centered: !mirrored)
                 .stroke(theme.accentTop.opacity(0.92), style: StrokeStyle(lineWidth: 3.0, lineCap: .round, lineJoin: .round))
 
-            PulseShape(bands: bands, mirrored: true, time: time)
-                .stroke(theme.accentBottom.opacity(0.92), style: StrokeStyle(lineWidth: 3.0, lineCap: .round, lineJoin: .round))
+            if mirrored {
+                PulseShape(bands: bands, mirrored: true, time: time, centered: false)
+                    .stroke(theme.accentBottom.opacity(0.92), style: StrokeStyle(lineWidth: 3.0, lineCap: .round, lineJoin: .round))
+            }
 
             PulseCenterLine()
                 .stroke(theme.guide.opacity(0.14), style: StrokeStyle(lineWidth: 1.0, lineCap: .round))
@@ -167,6 +200,7 @@ private struct HorizonDotsVisualizer: View {
     let bands: [CGFloat]
     let time: TimeInterval
     let theme: VisualTheme
+    let mirrored: Bool
 
     var body: some View {
         GeometryReader { geometry in
@@ -184,13 +218,40 @@ private struct HorizonDotsVisualizer: View {
                     Circle()
                         .fill(color.opacity(0.95))
                         .frame(width: maxRadius, height: maxRadius)
-                        .position(x: x, y: (size.height / 2) - amplitude + CGFloat(wobble))
+                        .position(x: x, y: mirrored ? (size.height / 2) - amplitude + CGFloat(wobble) : (size.height / 2) + CGFloat(wobble))
 
-                    Circle()
-                        .fill(color.opacity(0.45))
-                        .frame(width: maxRadius * 0.8, height: maxRadius * 0.8)
-                        .position(x: x, y: (size.height / 2) + amplitude - CGFloat(wobble))
+                    if mirrored {
+                        Circle()
+                            .fill(color.opacity(0.45))
+                            .frame(width: maxRadius * 0.8, height: maxRadius * 0.8)
+                            .position(x: x, y: (size.height / 2) + amplitude - CGFloat(wobble))
+                    }
                 }
+            }
+        }
+    }
+}
+
+private struct TidalWavesVisualizer: View {
+    let bands: [CGFloat]
+    let time: TimeInterval
+    let theme: VisualTheme
+    let mirrored: Bool
+
+    var body: some View {
+        ZStack {
+            ForEach(0..<6, id: \.self) { layer in
+                let progress = CGFloat(layer) / 5.0
+                WaveFieldShape(
+                    bands: bands,
+                    time: time + Double(layer) * 0.35,
+                    verticalOffset: mirrored ? (progress - 0.5) * 140 : 0,
+                    mirrored: mirrored
+                )
+                .stroke(
+                    theme.palette[layer % theme.palette.count].opacity(0.22 + Double(progress) * 0.22),
+                    style: StrokeStyle(lineWidth: 2.2 + (1.0 - progress) * 2.6, lineCap: .round, lineJoin: .round)
+                )
             }
         }
     }
@@ -300,6 +361,7 @@ private struct WaveStrandShape: Shape {
 private struct MirrorWaveShape: Shape {
     let bands: [CGFloat]
     let mirrored: Bool
+    let centered: Bool
 
     func path(in rect: CGRect) -> Path {
         let midY = rect.height / 2
@@ -309,7 +371,7 @@ private struct MirrorWaveShape: Shape {
             let x = CGFloat(index) / CGFloat(max(bands.count - 1, 1)) * rect.width
             let energy = min(bands[index] * 1.28, 1.3)
             let yOffset = energy * rect.height * 0.24
-            let y = mirrored ? midY + yOffset : midY - yOffset
+            let y = centered ? midY - (yOffset * 0.5) : (mirrored ? midY + yOffset : midY - yOffset)
 
             if index == 0 {
                 path.move(to: CGPoint(x: x, y: y))
@@ -326,6 +388,7 @@ private struct PulseShape: Shape {
     let bands: [CGFloat]
     let mirrored: Bool
     let time: TimeInterval
+    let centered: Bool
 
     func path(in rect: CGRect) -> Path {
         let midY = rect.height / 2
@@ -339,7 +402,38 @@ private struct PulseShape: Shape {
             let envelope = 1.0 - abs((progress - 0.5) * 1.75)
             let ripple = sin((progress * .pi * 10) + CGFloat(time * 2.4)) * 0.06
             let yOffset = min(bands[index] * 0.9 + ripple, 1.2) * rect.height * 0.22 * max(envelope, 0.2)
-            let y = mirrored ? midY + yOffset : midY - yOffset
+            let y = centered ? midY + ((ripple * rect.height * 0.08) - (yOffset * 0.15)) : (mirrored ? midY + yOffset : midY - yOffset)
+
+            if index == 0 {
+                path.move(to: CGPoint(x: x, y: y))
+            } else {
+                path.addLine(to: CGPoint(x: x, y: y))
+            }
+        }
+
+        return path
+    }
+}
+
+private struct WaveFieldShape: Shape {
+    let bands: [CGFloat]
+    let time: TimeInterval
+    let verticalOffset: CGFloat
+    let mirrored: Bool
+
+    func path(in rect: CGRect) -> Path {
+        let midY = rect.height / 2
+        var path = Path()
+
+        for index in bands.indices {
+            let progress = CGFloat(index) / CGFloat(max(bands.count - 1, 1))
+            let x = progress * rect.width
+            let band = bands[index]
+            let amplitude = rect.height * (mirrored ? 0.08 : 0.11)
+            let primary = sin((progress * .pi * 4.5) + CGFloat(time * 1.4)) * amplitude
+            let secondary = cos((progress * .pi * 9.0) - CGFloat(time * 0.9)) * amplitude * 0.24
+            let reactive = band * rect.height * 0.12
+            let y = midY + verticalOffset + primary + secondary + (mirrored ? reactive * (progress - 0.5) : reactive * 0.28)
 
             if index == 0 {
                 path.move(to: CGPoint(x: x, y: y))

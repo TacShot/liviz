@@ -3,8 +3,16 @@ import SwiftUI
 
 struct LiveVizCommands: Commands {
     @ObservedObject var model: VisualizerModel
+    @ObservedObject var settings: SettingsStore
 
     var body: some Commands {
+        CommandGroup(after: .newItem) {
+            Button("Settings…") {
+                NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+            }
+            .keyboardShortcut(",", modifiers: [.command])
+        }
+
         CommandGroup(replacing: .help) {
             Button("LiveViz Controls") {
                 let alert = NSAlert()
@@ -14,9 +22,12 @@ struct LiveVizCommands: Commands {
                 F toggles wallpaper mode.
                 D toggles blackout mode.
                 T toggles system theme sync.
+                M toggles mirroring.
                 B toggles the dark background.
                 Left and Right change the visualizer colors.
                 Shift plus Left and Right change the background colors.
+                Control plus Up and Down change foreground darkness.
+                Shift plus Up and Down change background darkness.
                 Up Arrow increases visual intensity.
                 Down Arrow decreases visual intensity.
                 Esc exits wallpaper mode.
@@ -31,6 +42,11 @@ struct LiveVizCommands: Commands {
                 model.cycleStyle()
             }
             .keyboardShortcut(.space, modifiers: [])
+
+            Button("Toggle Mirroring") {
+                model.toggleMirror()
+            }
+            .keyboardShortcut("m", modifiers: [])
 
             Button("Toggle Wallpaper Mode") {
                 model.toggleFullscreenDesktopMode()
