@@ -29,7 +29,7 @@ struct LiveVizApp: App {
         .windowResizability(.contentSize)
         .defaultSize(width: 1200, height: 700)
         .commands {
-            LiveVizCommands(model: model, settings: settings)
+            LiveVizCommands(model: model)
         }
 
         Settings {

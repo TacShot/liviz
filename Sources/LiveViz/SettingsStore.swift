@@ -222,7 +222,7 @@ final class SettingsStore: ObservableObject {
         appearanceMode = AppearanceMode(rawValue: defaults.string(forKey: Keys.appearanceMode) ?? "") ?? .auto
         mirrorEnabled = defaults.object(forKey: Keys.mirrorEnabled) as? Bool ?? true
         importedLUT = SettingsStore.loadLUT(from: defaults)
-        keyBindings = SettingsStore.loadBindings(from: defaults)
+        keyBindings = SettingsStore.migratedBindings(SettingsStore.loadBindings(from: defaults))
     }
 
     func binding(for action: ShortcutAction) -> Binding<KeyBinding> {
@@ -292,12 +292,29 @@ final class SettingsStore: ObservableObject {
         .backgroundHueRight: KeyBinding(key: .rightArrow, shift: true),
         .intensityUp: KeyBinding(key: .upArrow),
         .intensityDown: KeyBinding(key: .downArrow),
-        .foregroundBrightnessUp: KeyBinding(key: .upArrow, control: true),
-        .foregroundBrightnessDown: KeyBinding(key: .downArrow, control: true),
+        .foregroundBrightnessUp: KeyBinding(key: .upArrow, option: true),
+        .foregroundBrightnessDown: KeyBinding(key: .downArrow, option: true),
         .backgroundBrightnessUp: KeyBinding(key: .upArrow, shift: true),
         .backgroundBrightnessDown: KeyBinding(key: .downArrow, shift: true),
         .exitWallpaper: KeyBinding(key: .escape)
     ]
+
+    private static func migratedBindings(_ bindings: [ShortcutAction: KeyBinding]) -> [ShortcutAction: KeyBinding] {
+        var updated = bindings
+
+        let oldForegroundUp = KeyBinding(key: .upArrow, control: true)
+        let oldForegroundDown = KeyBinding(key: .downArrow, control: true)
+
+        if updated[.foregroundBrightnessUp] == oldForegroundUp {
+            updated[.foregroundBrightnessUp] = defaultBindings[.foregroundBrightnessUp]
+        }
+
+        if updated[.foregroundBrightnessDown] == oldForegroundDown {
+            updated[.foregroundBrightnessDown] = defaultBindings[.foregroundBrightnessDown]
+        }
+
+        return updated
+    }
 
     private enum Keys {
         static let appearanceMode = "appearanceMode"

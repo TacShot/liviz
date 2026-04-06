@@ -3,14 +3,12 @@ import SwiftUI
 
 struct LiveVizCommands: Commands {
     @ObservedObject var model: VisualizerModel
-    @ObservedObject var settings: SettingsStore
 
     var body: some Commands {
         CommandGroup(after: .newItem) {
-            Button("Settings…") {
-                NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+            SettingsLink {
+                Text("Settings…")
             }
-            .keyboardShortcut(",", modifiers: [.command])
         }
 
         CommandGroup(replacing: .help) {
@@ -26,7 +24,7 @@ struct LiveVizCommands: Commands {
                 B toggles the dark background.
                 Left and Right change the visualizer colors.
                 Shift plus Left and Right change the background colors.
-                Control plus Up and Down change foreground darkness.
+                Option plus Up and Down change foreground darkness.
                 Shift plus Up and Down change background darkness.
                 Up Arrow increases visual intensity.
                 Down Arrow decreases visual intensity.
