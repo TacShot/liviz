@@ -18,6 +18,24 @@ struct SettingsView: View {
                 Toggle("Mirror visualizations", isOn: $settings.mirrorEnabled)
             }
 
+            Section("Performance") {
+                Picker("Render mode", selection: $settings.renderMode) {
+                    ForEach(RenderMode.allCases) { mode in
+                        Text(mode.title).tag(mode)
+                    }
+                }
+
+                Picker("Frame rate", selection: $settings.frameRatePreset) {
+                    ForEach(FrameRatePreset.allCases) { preset in
+                        Text(preset.title).tag(preset)
+                    }
+                }
+
+                Text("Low Power reduces redraw detail and compositing. High Fidelity keeps the richer layered look and uses more GPU-assisted compositing.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             Section("Color Processing") {
                 if let lut = settings.importedLUT {
                     HStack {

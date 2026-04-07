@@ -9,6 +9,8 @@ struct VisualizerView: View {
         GeometryReader { geometry in
             let size = geometry.size
             let theme = resolvedTheme
+            let activeBands = reducedBands(from: model.bands, targetCount: settings.renderMode.targetBandCount)
+            let frameInterval = resolvedFrameInterval
 
             ZStack {
                 if model.blackoutMode {
@@ -27,16 +29,16 @@ struct VisualizerView: View {
                     .ignoresSafeArea()
                 }
 
-                TimelineView(.animation(minimumInterval: 1.0 / 60.0)) { timeline in
+                TimelineView(.animation(minimumInterval: frameInterval, paused: false)) { timeline in
                     let time = timeline.date.timeIntervalSinceReferenceDate
 
-                    visualizerBody(size: size, time: time, theme: theme)
+                    visualizerBody(size: size, time: time, theme: theme, bands: activeBands)
                     .frame(width: size.width, height: size.height)
-                    .compositingGroup()
                     .hueRotation(.degrees(model.foregroundHueRotation * 360))
                     .brightness(model.foregroundBrightness - 1.0)
                     .animation(.easeInOut(duration: 0.28), value: model.foregroundHueRotation)
                     .animation(.easeInOut(duration: 0.2), value: model.foregroundBrightness)
+                    .modifier(RenderPipelineModifier(useGPUCompositing: settings.renderMode.prefersGPUCompositing))
                 }
 
                 KeyCaptureView(model: model)
@@ -46,18 +48,43 @@ struct VisualizerView: View {
     }
 
     @ViewBuilder
-    private func visualizerBody(size: CGSize, time: TimeInterval, theme: VisualTheme) -> some View {
+    private func visualizerBody(size: CGSize, time: TimeInterval, theme: VisualTheme, bands: [CGFloat]) -> some View {
         switch model.style {
         case .neonWave:
-            NeonWaveVisualizer(bands: model.bands, time: time, theme: theme, mirrored: settings.mirrorEnabled)
+            NeonWaveVisualizer(
+                bands: bands,
+                time: time,
+                theme: theme,
+                mirrored: settings.mirrorEnabled,
+                strandCount: settings.renderMode.neonStrands
+            )
         case .prismBars:
-            PrismBarsVisualizer(bands: model.bands, theme: theme, mirrored: settings.mirrorEnabled)
+            PrismBarsVisualizer(bands: bands, theme: theme, mirrored: settings.mirrorEnabled)
         case .pulseLine:
-            PulseLineVisualizer(bands: model.bands, time: time, theme: theme, mirrored: settings.mirrorEnabled)
+            PulseLineVisualizer(bands: bands, time: time, theme: theme, mirrored: settings.mirrorEnabled)
         case .horizonDots:
-            HorizonDotsVisualizer(bands: model.bands, time: time, theme: theme, mirrored: settings.mirrorEnabled)
+            HorizonDotsVisualizer(bands: bands, time: time, theme: theme, mirrored: settings.mirrorEnabled)
         case .tidalWaves:
-            TidalWavesVisualizer(bands: model.bands, time: time, theme: theme, mirrored: settings.mirrorEnabled)
+            TidalWavesVisualizer(
+                bands: bands,
+                time: time,
+                theme: theme,
+                mirrored: settings.mirrorEnabled,
+                layerCount: settings.renderMode.tidalLayers
+            )
+        }
+    }
+
+    private var resolvedFrameInterval: TimeInterval {
+        switch settings.frameRatePreset {
+        case .adaptive:
+            let lowEnergy = model.averageEnergy < 0.08
+            let veryLowEnergy = model.averageEnergy < 0.035
+            if veryLowEnergy { return 1.0 / 20.0 }
+            if lowEnergy { return 1.0 / 30.0 }
+            return 1.0 / 45.0
+        default:
+            return settings.frameRatePreset.interval
         }
     }
 
@@ -81,6 +108,23 @@ struct VisualizerView: View {
         }
         return .manualNeon
     }
+
+    private func reducedBands(from source: [CGFloat], targetCount: Int) -> [CGFloat] {
+        guard source.count > targetCount else { return source }
+        let chunkSize = max(source.count / targetCount, 1)
+        var reduced: [CGFloat] = []
+        reduced.reserveCapacity(targetCount)
+
+        var index = 0
+        while index < source.count {
+            let end = min(index + chunkSize, source.count)
+            let slice = source[index..<end]
+            reduced.append(slice.reduce(0, +) / CGFloat(slice.count))
+            index = end
+        }
+
+        return reduced
+    }
 }
 
 private struct NeonWaveVisualizer: View {
@@ -88,11 +132,12 @@ private struct NeonWaveVisualizer: View {
     let time: TimeInterval
     let theme: VisualTheme
     let mirrored: Bool
+    let strandCount: Int
 
     var body: some View {
         ZStack {
-            ForEach(0..<18, id: \.self) { strand in
-                let strandProgress = CGFloat(strand) / 17.0
+            ForEach(0..<strandCount, id: \.self) { strand in
+                let strandProgress = CGFloat(strand) / CGFloat(max(strandCount - 1, 1))
                 let color = theme.palette[strand % theme.palette.count]
                 let opacity = 0.18 + (1.0 - abs(strandProgress - 0.5)) * 0.44
 
@@ -237,11 +282,12 @@ private struct TidalWavesVisualizer: View {
     let time: TimeInterval
     let theme: VisualTheme
     let mirrored: Bool
+    let layerCount: Int
 
     var body: some View {
         ZStack {
-            ForEach(0..<6, id: \.self) { layer in
-                let progress = CGFloat(layer) / 5.0
+            ForEach(0..<layerCount, id: \.self) { layer in
+                let progress = CGFloat(layer) / CGFloat(max(layerCount - 1, 1))
                 WaveFieldShape(
                     bands: bands,
                     time: time + Double(layer) * 0.35,
@@ -253,6 +299,20 @@ private struct TidalWavesVisualizer: View {
                     style: StrokeStyle(lineWidth: 2.2 + (1.0 - progress) * 2.6, lineCap: .round, lineJoin: .round)
                 )
             }
+        }
+    }
+}
+
+private struct RenderPipelineModifier: ViewModifier {
+    let useGPUCompositing: Bool
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if useGPUCompositing {
+            content
+                .drawingGroup(opaque: false, colorMode: .linear)
+        } else {
+            content
         }
     }
 }

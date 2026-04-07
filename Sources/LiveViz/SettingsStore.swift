@@ -27,6 +27,72 @@ enum AppearanceMode: String, CaseIterable, Codable, Identifiable {
     }
 }
 
+enum RenderMode: String, CaseIterable, Codable, Identifiable {
+    case lowPower
+    case highFidelity
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .lowPower: "Low Power"
+        case .highFidelity: "High Fidelity"
+        }
+    }
+
+    var prefersGPUCompositing: Bool {
+        self == .highFidelity
+    }
+
+    var neonStrands: Int {
+        switch self {
+        case .lowPower: 8
+        case .highFidelity: 18
+        }
+    }
+
+    var tidalLayers: Int {
+        switch self {
+        case .lowPower: 3
+        case .highFidelity: 6
+        }
+    }
+
+    var targetBandCount: Int {
+        switch self {
+        case .lowPower: 36
+        case .highFidelity: 96
+        }
+    }
+}
+
+enum FrameRatePreset: String, CaseIterable, Codable, Identifiable {
+    case adaptive
+    case fps30
+    case fps45
+    case fps60
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .adaptive: "Adaptive"
+        case .fps30: "30 FPS"
+        case .fps45: "45 FPS"
+        case .fps60: "60 FPS"
+        }
+    }
+
+    var interval: TimeInterval {
+        switch self {
+        case .adaptive: 1.0 / 45.0
+        case .fps30: 1.0 / 30.0
+        case .fps45: 1.0 / 45.0
+        case .fps60: 1.0 / 60.0
+        }
+    }
+}
+
 enum ShortcutAction: String, CaseIterable, Codable, Identifiable {
     case wallpaperMode
     case blackoutMode
@@ -212,6 +278,14 @@ final class SettingsStore: ObservableObject {
         didSet { persistLUT() }
     }
 
+    @Published var renderMode: RenderMode {
+        didSet { defaults.set(renderMode.rawValue, forKey: Keys.renderMode) }
+    }
+
+    @Published var frameRatePreset: FrameRatePreset {
+        didSet { defaults.set(frameRatePreset.rawValue, forKey: Keys.frameRatePreset) }
+    }
+
     @Published var keyBindings: [ShortcutAction: KeyBinding] {
         didSet { persistKeyBindings() }
     }
@@ -222,6 +296,8 @@ final class SettingsStore: ObservableObject {
         appearanceMode = AppearanceMode(rawValue: defaults.string(forKey: Keys.appearanceMode) ?? "") ?? .auto
         mirrorEnabled = defaults.object(forKey: Keys.mirrorEnabled) as? Bool ?? true
         importedLUT = SettingsStore.loadLUT(from: defaults)
+        renderMode = RenderMode(rawValue: defaults.string(forKey: Keys.renderMode) ?? "") ?? .lowPower
+        frameRatePreset = FrameRatePreset(rawValue: defaults.string(forKey: Keys.frameRatePreset) ?? "") ?? .adaptive
         keyBindings = SettingsStore.migratedBindings(SettingsStore.loadBindings(from: defaults))
     }
 
@@ -320,6 +396,8 @@ final class SettingsStore: ObservableObject {
         static let appearanceMode = "appearanceMode"
         static let mirrorEnabled = "mirrorEnabled"
         static let importedLUT = "importedLUT"
+        static let renderMode = "renderMode"
+        static let frameRatePreset = "frameRatePreset"
         static let keyBindings = "keyBindings"
     }
 }

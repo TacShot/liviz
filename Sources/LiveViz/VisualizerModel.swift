@@ -13,6 +13,7 @@ enum VisualizerStyle: CaseIterable {
 @MainActor
 final class VisualizerModel: ObservableObject {
     @Published private(set) var bands: [CGFloat] = Array(repeating: 0.04, count: 96)
+    @Published private(set) var averageEnergy: CGFloat = 0.04
     @Published private(set) var backgroundVisible = false
     @Published private(set) var intensity: CGFloat = 1.0
     @Published private(set) var style: VisualizerStyle = .neonWave
@@ -186,6 +187,8 @@ final class VisualizerModel: ObservableObject {
             let smoothed = (bands[index] * 0.68) + (next[index] * 0.32)
             bands[index] = max(0.012, smoothed)
         }
+
+        averageEnergy = bands.reduce(0, +) / CGFloat(max(bands.count, 1))
     }
 
     private func installLifecycleObservers() {
